@@ -1,0 +1,5 @@
+{
+  "name": "RotaLucro",
+  "description": "SaaS profissional para transportadoras brasileiras calcularem rotas, custos e lucros.",
+  "requestFramePermissions": ["geolocation"]
+}
