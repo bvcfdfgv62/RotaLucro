@@ -70,7 +70,7 @@ export const Auth = () => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="bg-blue-600 p-8 text-center text-white">
           <Truck className="w-16 h-16 mx-auto mb-4 text-blue-100" />
-          <h1 className="text-3xl font-bold tracking-tight mb-2">RotaLucro</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">ROTA LUCRO</h1>
           <p className="text-blue-100 font-medium">
             SaaS Profissional para Transportadoras
           </p>

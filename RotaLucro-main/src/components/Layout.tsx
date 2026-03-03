@@ -20,7 +20,7 @@ export const Layout = () => {
       <div className="w-full md:w-64 bg-slate-900 text-white flex flex-col">
         <div className="p-6 flex items-center space-x-3">
           <Truck className="w-8 h-8 text-blue-400" />
-          <span className="text-2xl font-bold tracking-tight">RotaLucro</span>
+          <span className="text-2xl font-bold tracking-tight">ROTA LUCRO</span>
         </div>
 
         <nav className="flex-1 px-4 space-y-2 mt-4">
@@ -30,11 +30,10 @@ export const Layout = () => {
               <Link
                 key={item.name}
                 to={item.href}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${
-                  isActive
+                className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${isActive
                     ? "bg-blue-600 text-white"
                     : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                }`}
+                  }`}
               >
                 <item.icon className="w-5 h-5" />
                 <span className="font-medium">{item.name}</span>
