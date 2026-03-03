@@ -1,7 +1,7 @@
 import React from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { Truck, LayoutDashboard, PlusCircle, LogOut } from "lucide-react";
+import { Truck, LayoutDashboard, PlusCircle, LogOut, Users, Package } from "lucide-react";
 
 export const Layout = () => {
   const { signOut, user } = useAuth();
@@ -10,6 +10,8 @@ export const Layout = () => {
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Nova Viagem", href: "/nova-viagem", icon: PlusCircle },
+    { name: "Agregados", href: "/agregados", icon: Users },
+    { name: "Cargas", href: "/cargas", icon: Package },
   ];
 
   return (

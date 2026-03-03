@@ -10,6 +10,7 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { Agregado, Carga } from "../types/database";
 import {
   MapPin,
   Navigation,
@@ -19,6 +20,8 @@ import {
   Calculator,
   Loader2,
   AlertCircle,
+  Users,
+  Package,
 } from "lucide-react";
 
 // Fix for default marker icons in react-leaflet
@@ -42,6 +45,8 @@ type CalculationResult = {
   custoTotal: number;
   lucro: number;
   margem: number;
+  custoAdicional: number;
+  detalhesCustoAdicional: string[];
   routeCoordinates: [number, number][];
   origemCoords: [number, number];
   destinoCoords: [number, number];
@@ -61,7 +66,44 @@ export const NovaViagem = () => {
   const [precoDiesel, setPrecoDiesel] = useState("5.89");
   const [consumo, setConsumo] = useState("2.05");
 
+  // Agregados and Cargas state
+  const [agregados, setAgregados] = useState<Agregado[]>([]);
+  const [cargas, setCargas] = useState<Carga[]>([]);
+  const [selectedAgregadoId, setSelectedAgregadoId] = useState("");
+  const [selectedCargaId, setSelectedCargaId] = useState("");
+
   const [result, setResult] = useState<CalculationResult & { paradaCoords?: [number, number] } | null>(null);
+
+  React.useEffect(() => {
+    if (user) {
+      fetchAgregadosAndCargas();
+    }
+  }, [user]);
+
+  const fetchAgregadosAndCargas = async () => {
+    try {
+      const [agregadosRes, cargasRes] = await Promise.all([
+        supabase.from("agregados").select("*").eq("user_id", user?.id).eq("status", "Ativo"),
+        supabase.from("cargas").select("*").eq("user_id", user?.id)
+      ]);
+      
+      if (agregadosRes.data) setAgregados(agregadosRes.data);
+      if (cargasRes.data) setCargas(cargasRes.data);
+    } catch (error) {
+      console.error("Erro ao buscar agregados e cargas:", error);
+    }
+  };
+
+  const handleAgregadoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const id = e.target.value;
+    setSelectedAgregadoId(id);
+    if (id) {
+      const agregado = agregados.find(a => a.id === id);
+      if (agregado) {
+        setConsumo(agregado.consumo_medio.toString());
+      }
+    }
+  };
 
   const getCoordinates = async (city: string): Promise<[number, number]> => {
     try {
@@ -155,21 +197,44 @@ export const NovaViagem = () => {
         ]);
 
       // 3. Math
-      const km = distanceMeters / 1000;
-      const horas = durationSeconds / 3600;
-      const dias = Math.ceil(km / 600);
+      let finalConsumo = cons;
+      let custoAdicional = 0;
+      let detalhesCustoAdicional: string[] = [];
 
-      const combustivelLitros = km / cons;
+      const kmCalculado = distanceMeters / 1000;
+      const horas = durationSeconds / 3600;
+      const dias = Math.ceil(kmCalculado / 600);
+
+      const cargaSelecionada = cargas.find(c => c.id === selectedCargaId);
+
+      if (cargaSelecionada) {
+        if (cargaSelecionada.peso > 10000) {
+          finalConsumo = finalConsumo * 0.95; // Aumenta o consumo em 5% (reduz km/l)
+          detalhesCustoAdicional.push("Consumo +5% (Peso > 10t)");
+        }
+        if (cargaSelecionada.tipo === 'Refrigerada') {
+          const custoRefri = kmCalculado * 0.50; // R$ 0.50 por KM
+          custoAdicional += custoRefri;
+          detalhesCustoAdicional.push(`Refrigeração: R$ ${custoRefri.toFixed(2)}`);
+        }
+        if (cargaSelecionada.tipo === 'Perigosa') {
+          const custoPerigo = frete * 0.15; // 15% do frete
+          custoAdicional += custoPerigo;
+          detalhesCustoAdicional.push(`Taxa Periculosidade: R$ ${custoPerigo.toFixed(2)}`);
+        }
+      }
+
+      const combustivelLitros = kmCalculado / finalConsumo;
       const custoCombustivel = combustivelLitros * diesel;
 
-      const pedagio = km * 0.3;
+      const pedagio = kmCalculado * 0.3;
 
-      const custoTotal = custoCombustivel + pedagio;
+      const custoTotal = custoCombustivel + pedagio + custoAdicional;
       const lucro = frete - custoTotal;
       const margem = (lucro / frete) * 100;
 
       const calcResult = {
-        km,
+        km: kmCalculado,
         horas,
         dias,
         combustivelLitros,
@@ -178,6 +243,8 @@ export const NovaViagem = () => {
         custoTotal,
         lucro,
         margem,
+        custoAdicional,
+        detalhesCustoAdicional,
         routeCoordinates,
         origemCoords,
         destinoCoords,
@@ -195,7 +262,7 @@ export const NovaViagem = () => {
             origem,
             destino,
             parada: parada.trim() !== "" ? parada : null,
-            km,
+            km: kmCalculado,
             dias,
             valor_frete: frete,
             custo_total: custoTotal,
@@ -258,6 +325,50 @@ export const NovaViagem = () => {
             </h2>
 
             <form onSubmit={calculateRoute} className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    Agregado (Opcional)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Users className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <select
+                      value={selectedAgregadoId}
+                      onChange={handleAgregadoChange}
+                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 sm:text-sm transition-colors appearance-none bg-white"
+                    >
+                      <option value="">Selecione...</option>
+                      {agregados.map(a => (
+                        <option key={a.id} value={a.id}>{a.nome} ({a.placa})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                    Carga (Opcional)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Package className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <select
+                      value={selectedCargaId}
+                      onChange={(e) => setSelectedCargaId(e.target.value)}
+                      className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 sm:text-sm transition-colors appearance-none bg-white"
+                    >
+                      <option value="">Selecione...</option>
+                      {cargas.map(c => (
+                        <option key={c.id} value={c.id}>{c.nome} ({c.tipo})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
                   Cidade de Origem
@@ -493,6 +604,17 @@ export const NovaViagem = () => {
                         {formatCurrency(result.custoTotal)}
                       </span>
                     </div>
+
+                    {result.detalhesCustoAdicional && result.detalhesCustoAdicional.length > 0 && (
+                      <div className="py-2 border-b border-slate-100">
+                        <span className="text-slate-600 text-sm font-medium block mb-1">Custos Adicionais da Carga:</span>
+                        <ul className="text-sm text-red-600 space-y-1">
+                          {result.detalhesCustoAdicional.map((detalhe, idx) => (
+                            <li key={idx}>• {detalhe}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
                     <div className="pt-4 flex items-center justify-between">
                       <div>
